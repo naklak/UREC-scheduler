@@ -81,20 +81,6 @@ def template(workbook, title):
 
 def shifts(sh, nm, shift_li):
 
-    # create list for mon~sun shifts
-    for i in range(7):
-        shift_li.append([])
-        if i<=4:
-            for j in range(6):
-                shift_li[i].append([[],[],[]])
-        if i>=5:
-            for j in range(4):
-                shift_li[i].append([[],[],[]])
-    # shift_li:
-    #    1. column (7)
-    #    2. row (6 for col 0~4(weekday), 4 for col 5~6(weekend))
-    #    3. [green][orange][red]
-
     # weekday
     for c in range(5):
         for r in range(6):
@@ -106,7 +92,6 @@ def shifts(sh, nm, shift_li):
             if bgcol=='FFFF0000':
                 shift_li[c][r][2].append(nm) # Red
 
-    # saturday
     for r in range(4):
         bgcol = sh.cell(row=15+r, column=2).fill.start_color.index
         if bgcol=='FF00B050':
@@ -143,8 +128,22 @@ def read(path):
     hours_li = []
     notes_li = []
 
-    files = os.listdir(path)
     shift_li = []
+    # create list for mon~sun shifts
+    for i in range(7):
+        shift_li.append([])
+        if i<=4:
+            for j in range(6):
+                shift_li[i].append([[],[],[]])
+        if i>=5:
+            for j in range(4):
+                shift_li[i].append([[],[],[]])
+    # shift_li:
+    #    1. column (7 for each days of the week)
+    #    2. row (6 shifts for col 0~4(weekday), 4 shifts for col 5~6(weekend))
+    #    3. [green][orange][red]
+
+    files = os.listdir(path)
     for f in files:
         if f.endswith('.xlsx'):
             print("Reading file "+f+"...")
@@ -173,7 +172,6 @@ def read(path):
 # Read excel files
 
 def fill(worksheet, info):
-    # info = final_li
 
     left_format = workbook.add_format()
     left_format.set_align('left')
@@ -183,6 +181,10 @@ def fill(worksheet, info):
     orange.set_font_color('orange')
     red = workbook.add_format()
     red.set_font_color('red')
+    labels_format = workbook.add_format()
+    labels_format.set_bold()
+    labels_format.set_align('center')
+    labels_format.set_align('vcenter')
 
     # fill student information
     row = 8
@@ -194,59 +196,89 @@ def fill(worksheet, info):
         col+=1
         row=8
 
+    shift_li = info[1]
     # fill shift information
     row = 8
     col = 3
+    maxrow = 8
     weekday_breaks = ['7a-10a', '10a-1p', '1p-4p', '4p-7p', '7p-10p', '10p-1a']
-    sat_breaks = ['8a-12a', '12p-3p', '3p--6p', '6p-10p']
+    sat_breaks = ['8a-12a', '12p-3p', '3p-6p', '6p-10p']
     sun_breaks = ['12p-4p', '4p-7p', '7p-10p', '10p-1a']
 
-    for c in info[1]: # columns in shift_li
-        for r in c:
-            # weekday
-            if info[1].index(c)<=4:
-                if col == 3:
-                    worksheet.write(row-1, col-2,weekday_breaks[c.index(r)])
-                for nms in r[0]:
+    # weekday
+    for r in range(6):
+        minrow = maxrow
+        worksheet.write(maxrow-1, 1, weekday_breaks[r], labels_format)
+        for c in range(5):
+            if shift_li[c][r][0]: # green
+                for nms in shift_li[c][r][0]:
                     worksheet.write(row-1, col-1, nms, green)
                     row+=1
-                for nms in r[1]:
+            if shift_li[c][r][1]: # orange
+                for nms in shift_li[c][r][1]:
                     worksheet.write(row-1, col-1, nms, orange)
                     row+=1
-                for nms in r[2]:
+            if shift_li[c][r][2]: # red
+                for nms in shift_li[c][r][2]:
                     worksheet.write(row-1, col-1, nms, red)
                     row+=1
-            # saturday
-            if info[1].index(c)==5:
-                for nms in r[0]:
-                    worksheet.write(row-1, 9, nms, green)
-                    row+=1
-                for nms in r[1]:
-                    worksheet.write(row-1, 9, nms, orange)
-                    row+=1
-                for nms in r[2]:
-                    worksheet.write(row-1, 9, nms, red)
-                    row+=1
-            # sunday
-            if info[1].index(c)==6:
-                for nms in r[0]:
-                    worksheet.write(row-1, 11, nms, green)
-                    row+=1
-                for nms in r[1]:
-                    worksheet.write(row-1, 11, nms, orange)
-                    row+=1
-                for nms in r[2]:
-                    worksheet.write(row-1, 11, nms, red)
-                    row+=1
+            if row>maxrow:
+                maxrow = row
+            row = minrow
+            col+=1
+        if minrow == maxrow:
+            maxrow+=1
+        col=3
+
+    row = 8
+    col = 10
+    maxrow = 8
+    # saturday
+    for r in range(4):
+        worksheet.write(row-1, 8, sat_breaks[r], labels_format)
+        if shift_li[5][r][0]: # green
+            for nms in shift_li[5][r][0]:
+                worksheet.write(row-1, col-1, nms, green)
+                row+=1
+        if shift_li[5][r][1]: # orange
+            for nms in shift_li[5][r][1]:
+                worksheet.write(row-1, col-1, nms, orange)
+                row+=1
+        if shift_li[5][r][2]: # red
+            for nms in shift_li[5][r][2]:
+                worksheet.write(row-1, col-1, nms, red)
+                row+=1
+        if maxrow == row:
             row+=1
-        col+=1
-        row=8
+        maxrow = row
+
+    row = 8
+    col = 12
+    maxrow = 8
+    # sunday
+    for r in range(4):
+        worksheet.write(maxrow-1, 10, sun_breaks[r], labels_format)
+        if shift_li[6][r][0]: # green
+            for nms in shift_li[6][r][0]:
+                worksheet.write(row-1, col-1, nms, green)
+                row+=1
+        if shift_li[6][r][1]: # orange
+            for nms in shift_li[6][r][1]:
+                worksheet.write(row-1, col-1, nms, orange)
+                row+=1
+        if shift_li[6][r][2]: # red
+            for nms in shift_li[6][r][2]:
+                worksheet.write(row-1, col-1, nms, red)
+                row+=1
+        if maxrow == row:
+            row+=1
+        maxrow = row
 
 ################################################################################
 # Start program
 
 print('\n#####################')
-print("UREC Scheduler\nUpdated: -\nWritten by Zia Kim")
+print("UREC Scheduler\nUpdated: 01.23.23\nWritten by Zia Kim")
 print('#####################\n')
 inp = input("Enter semester and year (ex. Spring 2023): ")
 title = inp + " Availability"
